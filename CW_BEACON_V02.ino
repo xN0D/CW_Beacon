@@ -8,7 +8,7 @@
 // Beacon message in EEPROM, ASCII code, uppercase. Value FF(255) ignored.
 // avrdude -p t4313 -P /dev/ttyUSB0 -c avrisp -b 19200 -U eeprom:w:message.hex
 
-#define MESS_MAX_SIZE 71                                                    //Максипальный размер принимаемой строки по UART
+#define MESS_MAX_SIZE 71                                                    //Максимальный размер принимаемой строки по UART
 #define F_CPU 1105920UL
 #include <avr/io.h>
 #include <stdint.h>
