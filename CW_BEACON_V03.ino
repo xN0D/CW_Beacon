@@ -1,5 +1,5 @@
-// CW Beacon for CW transceiver Super RM or RockMite 51 or Super Octopus by Igor Kutko, UA3YMC, 27 Jun 2019
-// V.02
+// CW Beacon for CW transceiver Super RM or RockMite 51 or Super Octopus by Igor Kutko, UA3YMC, 1 March 2020
+// V.03
 // ATTinyCore by Spence Konde
 // http://drazzy.com/package_drazzy.com_index.json
 // ATTiny4313
@@ -8,7 +8,7 @@
 // Beacon message in EEPROM, ASCII code, uppercase. Value FF(255) ignored.
 // avrdude -p t4313 -P /dev/ttyUSB0 -c avrisp -b 19200 -U eeprom:w:message.hex
 
-#define MESS_MAX_SIZE 71                                                    //Максимальный размер принимаемой строки по UART
+#define MESS_MAX_SIZE 67                                                    //Максимальный размер принимаемой строки по UART
 #define F_CPU 1105920UL
 #include <avr/io.h>
 #include <stdint.h>
@@ -21,7 +21,6 @@ unsigned int c_speed = 16;                                                  //С
 unsigned int n_freq = 5;                                                    //Номер тона по умолчанию
 char mess[MESS_MAX_SIZE];
 volatile boolean flag = 0;                                                  //Флаг передачи
-unsigned count = 0;
 unsigned int mess_size = 0;                                                 // текущий размер строки
 boolean mess_complete = false;                                              // строка в буфере получена полностью
 
@@ -76,6 +75,14 @@ void readSerial() {
       case '\r':                                //возврат каретки - окончание строки
         mess[mess_size] = 0;                    // добавляем ноль в конец строки (признак её окончания)
         mess_complete = true;                   // признак получения полной строки для гл. цикла
+        break;
+      case '^':                                 //Запись в EEPROM
+        mess[mess_size] = 0;                    //
+        EEPMsg(mess);                           //
+        break;
+      case '~':                                 // Вкл\Выкл передачи
+        flag = !flag;
+        Serial.println("OK");
         break;
       default:
         mess[mess_size] = ch;                   // если символ - не конец строки - добавляем символ в буфер
@@ -165,34 +172,88 @@ void beep() {
 }
 
 void MemMsg(byte f) {
-  unsigned int i;
   char ch[0];
-  for (i = 0; i < EEPROM.length(); i++)
-  {
-    if ( flag == 1 ) {
+  for (unsigned int i = 0; i < EEPROM.length(); i++)  {
+    if (flag == 1) {
       ch[0] = EEPROM[i];
-      if ( ch == char(255)) {
-        return;
+      if ( ch[0] == char(255)) {
+        break;
       }
-      CodeMorse(ch, 0, f);
+      else {
+        CodeMorse(ch, 0, f);
+      }
     }
     else {
-      return;
+      break;
     }
     pause(c_speed * 3);                         //Пауза между словами
   }
-  pause(c_speed * 3 * 300);                     //Пауза между повторами
-  Counter();
+  for (unsigned int a = 0; a < 300; a++) {      //Пауза между повторами
+    if (flag == 1) {
+      pause(c_speed * 3);
+    }
+    else {
+      Serial.println("QRV");
+      break;
+    }
+  }
+  Serial.println("QRV");
 }
 
-void Counter()                                  //Счетчик повторов
-{
-  Serial.print("#");
-  Serial.println(count);
-  if ( count == 65534 ) {
-    count = 0;
+void EEPMsg(char *str) {
+  unsigned int _start;
+  unsigned int _stop;
+  unsigned int _count = 1;
+  if (char(mess[0]) >= 48 && char(mess[0]) <= 51) {        // Если первый символ от 0 до 3
+    if (mess[1] != 0) {                                    // Если второй символ не конец
+      switch (mess[0]) {
+        case '0':
+          _start = 0;
+          _stop = 63;
+          //Serial.println("bank 1");
+          break;
+        case '1':
+          _start = 64;
+          _stop = 127;
+          //Serial.println("bank 2");
+          break;
+        case '2':
+          _start = 128;
+          _stop = 191;
+          //Serial.println("bank 3");
+          break;
+        case '3':
+          _start = 192;
+          _stop = 255;
+          //Serial.println("bank 4");
+          break;
+      }
+      for (unsigned int c = _start; _stop; c++) {
+        if (str[_count] != 0) {
+          EEPROM.write(c, str[_count]);
+          _count++;
+        }
+        else {
+          EEPROM.write(c, char(255));
+          Serial.println(mess);
+          Serial.println("OK");
+          clean_mess();
+          return;
+        }
+      }
+      Serial.println(mess);
+      Serial.println("OK");
+      clean_mess();
+    }
+    else {
+      Serial.println("ERR");
+      clean_mess();
+    }
   }
-  count++;
+  else {
+    Serial.println("ERR");
+    clean_mess();
+  }
 }
 
 void SendMsg(char *str, byte f)
