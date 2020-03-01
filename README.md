@@ -66,7 +66,11 @@ _3TEST MESSAGE^_
 _avrdude -p t4313 -P /dev/ttyUSB0 -c avrisp -b 19200 -U lfuse:w:0xEF:m  -U hfuse:w:0xDF:m  -U efuse:w:0xFF:m_
 
 Компиляцию производить со следующими параметрами:
+
 Плата 	ATTiny2313/4313
+
 Chip 	4313
+
 Clock 	11.0592
+
 Все остальное по умолчанию.
